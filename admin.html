@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Administrar Productos</title>
+    <!-- Tailwind CSS CDN for easy styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles to ensure rounded corners and Inter font */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5; /* Light gray background, similar to Mercado Libre */
+            color: #333;
+            /* Background image styles */
+            background-image: url('https://lh6.googleusercontent.com/-MdbItJIG9Hg/Vr3jWpDNeZI/AAAAAAAAADw/fynGmEyoX1wF2epMuIKh9x3dGwMaIwsPgCJkC/photo.jpg'); /* Placeholder background image */
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed; /* Makes the background scroll with the content */
+        }
+        /* Specific styles for the product image in the admin list */
+        .admin-product-item img {
+            width: 80px;
+            height: 80px;
+            object-fit: cover;
+            border-radius: 0.25rem; /* Small rounded corners */
+        }
+        /* Style for buttons */
+        button {
+            transition: background-color 0.3s ease;
+        }
+        .bg-blue-500:hover { background-color: #2968c8; }
+        .bg-red-500:hover { background-color: #c83434; }
+        .bg-gray-500:hover { background-color: #6b7280; } /* Hover for cancel button */
+        .bg-yellow-500:hover { background-color: #ca8a04; } /* Hover for edit button */
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+    <!-- Header Section -->
+    <header class="bg-green-300 p-4 shadow-md rounded-b-lg">
+        <div class="container mx-auto flex flex-col md:flex-row justify-between items-center">
+            <div class="flex items-center mb-2 md:mb-0">
+                <img src="https://factotal.com/assets/sources/colombia/logo-og.png" alt="Logo de la Tienda" class="h-12 w-12 mr-3 rounded-full"> <!-- Added Logo -->
+                <h1 class="text-3xl font-bold text-gray-800">Administrar Productos</h1>
+            </div>
+            <nav>
+                <ul class="flex space-x-4">
+                    <li><a href="./index.html" class="text-gray-700 hover:text-blue-600 font-semibold rounded-md p-2 transition-colors duration-200">Volver a Productos</a></li>
+                    <li><a href="#" class="text-gray-700 hover:text-blue-600 font-semibold rounded-md p-2 transition-colors duration-200">Mi Cuenta</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container mx-auto p-4 flex-grow">
+        <!-- Section to add/edit new products -->
+        <section class="bg-white p-6 rounded-lg shadow-md mb-8">
+            <h2 class="text-2xl font-semibold mb-4 text-gray-800" id="formTitle">Agregar Nuevo Producto</h2>
+            <form id="addProductForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label for="productName" class="block text-gray-700 text-sm font-bold mb-2">Nombre del Producto:</label>
+                    <input type="text" id="productName" name="productName" required class="shadow appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500">
+                </div>
+                <div>
+                    <label for="productDescription" class="block text-gray-700 text-sm font-bold mb-2">Descripción:</label>
+                    <textarea id="productDescription" name="productDescription" rows="3" required class="shadow appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500"></textarea>
+                </div>
+                <div>
+                    <label for="productPrice" class="block text-gray-700 text-sm font-bold mb-2">Precio (CLP):</label>
+                    <input type="number" id="productPrice" name="productPrice" step="0.01" required class="shadow appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500">
+                </div>
+                <div>
+                    <label for="productImageFile" class="block text-gray-700 text-sm font-bold mb-2">Cargar Imagen del Producto:</label>
+                    <input type="file" id="productImageFile" name="productImageFile" accept="image/*" class="shadow appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500">
+                    <img id="imagePreview" src="https://placehold.co/100x100/cccccc/333333?text=Preview" alt="Vista previa de la imagen" class="mt-2 rounded-md border border-gray-300" style="max-width: 100px; max-height: 100px; display: none;">
+                </div>
+                <div>
+                    <label for="sellerName" class="block text-gray-700 text-sm font-bold mb-2">Nombre del Vendedor:</label>
+                    <input type="text" id="sellerName" name="sellerName" class="shadow appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500">
+                </div>
+                <div>
+                    <label for="sellerEmail" class="block text-gray-700 text-sm font-bold mb-2">Email del Vendedor:</label>
+                    <input type="email" id="sellerEmail" name="sellerEmail" class="shadow appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500">
+                </div>
+                <div class="md:col-span-2">
+                    <label for="sellerPhone" class="block text-gray-700 text-sm font-bold mb-2">Teléfono del Vendedor:</label>
+                    <input type="tel" id="sellerPhone" name="sellerPhone" class="shadow appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500">
+                </div>
+                <div class="md:col-span-2 flex justify-end space-x-2">
+                    <button type="button" id="cancelEditBtn" class="bg-gray-500 text-white font-bold py-2 px-4 rounded-md focus:outline-none focus:shadow-outline" style="display:none;">
+                        Cancelar Edición
+                    </button>
+                    <button type="submit" id="submitBtn" class="bg-blue-500 text-white font-bold py-2 px-4 rounded-md focus:outline-none focus:shadow-outline">
+                        Agregar Producto
+                    </button>
+                </div>
+            </form>
+        </section>
+
+        <!-- Section to list and delete products -->
+        <section class="bg-white p-6 rounded-lg shadow-md">
+            <h2 class="text-2xl font-semibold mb-4 text-gray-800">Productos Existentes</h2>
+            <div id="adminProductList" class="space-y-4">
+                <!-- Products will be loaded and managed here by JavaScript -->
+                <p class="text-center text-gray-600" id="noProductsMessage">No hay productos para administrar.</p>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer Section -->
+    <footer class="bg-gray-800 text-white p-6 text-center mt-8 rounded-t-lg">
+        <p>&copy; 2025 Mis Productos. Todos los derechos reservados.</p>
+    </footer>
+
+    <script>
+        const addProductForm = document.getElementById('addProductForm');
+        const formTitle = document.getElementById('formTitle');
+        const submitBtn = document.getElementById('submitBtn');
+        const cancelEditBtn = document.getElementById('cancelEditBtn');
+        const productImageFile = document.getElementById('productImageFile');
+        const imagePreview = document.getElementById('imagePreview');
+        const adminProductList = document.getElementById('adminProductList');
+        const noProductsMessage = document.getElementById('noProductsMessage');
+        const localStorageKey = 'mercadoProducts'; // Key for localStorage
+
+        let currentImageBase64 = ''; // To store the Base64 string of the selected image
+        let editingProductIndex = -1; // -1 means no product is being edited
+
+        // Function to save products to localStorage
+        function saveProducts(products) {
+            localStorage.setItem(localStorageKey, JSON.stringify(products));
+            // Dispatch a storage event to notify other tabs/windows (like index.html)
+            window.dispatchEvent(new Event('storage'));
+        }
+
+        // Function to load products from localStorage
+        function loadProducts() {
+            return JSON.parse(localStorage.getItem(localStorageKey)) || [];
+        }
+
+        // Function to render products in the admin list
+        function renderAdminProducts() {
+            const products = loadProducts();
+            adminProductList.innerHTML = ''; // Clear existing list
+            if (products.length === 0) {
+                noProductsMessage.style.display = 'block';
+            } else {
+                noProductsMessage.style.display = 'none';
+                products.forEach((product, index) => {
+                    const productItem = document.createElement('div');
+                    productItem.classList.add(
+                        'admin-product-item', 'flex', 'items-center', 'justify-between', 'p-3',
+                        'bg-gray-50', 'rounded-md', 'shadow-sm', 'border', 'border-gray-200'
+                    );
+                    productItem.innerHTML = `
+                        <div class="flex items-center space-x-3 flex-grow">
+                            <img src="${product.image}" alt="${product.name}" class="flex-shrink-0">
+                            <div>
+                                <h3 class="text-md font-semibold text-gray-800">${product.name}</h3>
+                                <p class="text-gray-600 text-sm">CLP ${parseFloat(product.price).toFixed(2)}</p>
+                                ${product.sellerName ? `<p class="text-gray-500 text-xs">Vendedor: ${product.sellerName}</p>` : ''}
+                                ${product.sellerEmail ? `<p class="text-gray-500 text-xs">Email: ${product.sellerEmail}</p>` : ''}
+                                ${product.sellerPhone ? `<p class="text-gray-500 text-xs">Teléfono: ${product.sellerPhone}</p>` : ''}
+                            </div>
+                        </div>
+                        <div class="flex space-x-2">
+                            <button data-index="${index}" class="edit-product-btn bg-yellow-500 text-white py-1 px-3 rounded-md text-sm focus:outline-none focus:shadow-outline">
+                                Editar
+                            </button>
+                            <button data-index="${index}" class="delete-product-btn bg-red-500 text-white py-1 px-3 rounded-md text-sm focus:outline-none focus:shadow-outline">
+                                Eliminar
+                            </button>
+                        </div>
+                    `;
+                    adminProductList.appendChild(productItem);
+                });
+            }
+        }
+
+        // Function to clear the form and reset to "Add Product" mode
+        function resetForm() {
+            addProductForm.reset();
+            imagePreview.src = 'https://placehold.co/100x100/cccccc/333333?text=Preview';
+            imagePreview.style.display = 'none';
+            currentImageBase64 = '';
+            editingProductIndex = -1;
+            formTitle.textContent = 'Agregar Nuevo Producto';
+            submitBtn.textContent = 'Agregar Producto';
+            cancelEditBtn.style.display = 'none';
+        }
+
+        // Event listener for file input change
+        productImageFile.addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    imagePreview.src = e.target.result;
+                    imagePreview.style.display = 'block'; // Show the preview image
+                    currentImageBase64 = e.target.result; // Store Base64 string
+                };
+                reader.readAsDataURL(file); // Read file as Base64 URL
+            } else {
+                imagePreview.src = 'https://placehold.co/100x100/cccccc/333333?text=Preview';
+                imagePreview.style.display = 'none'; // Hide if no file selected
+                currentImageBase64 = '';
+            }
+        });
+
+        // Add event listener for form submission (add/edit product)
+        addProductForm.addEventListener('submit', function(event) {
+            event.preventDefault();
+
+            const productName = document.getElementById('productName').value;
+            const productDescription = document.getElementById('productDescription').value;
+            const productPrice = parseFloat(document.getElementById('productPrice').value);
+            const sellerName = document.getElementById('sellerName').value;
+            const sellerEmail = document.getElementById('sellerEmail').value;
+            const sellerPhone = document.getElementById('sellerPhone').value;
+
+            const productImage = currentImageBase64 || 'https://placehold.co/200x200/cccccc/333333?text=No+Image'; // Fallback if no image selected
+
+            const productData = {
+                id: editingProductIndex === -1 ? Date.now() : loadProducts()[editingProductIndex].id, // Keep original ID if editing
+                name: productName,
+                description: productDescription,
+                price: productPrice,
+                image: productImage, // Now stores Base64 or fallback URL
+                sellerName: sellerName,
+                sellerEmail: sellerEmail,
+                sellerPhone: sellerPhone
+            };
+
+            let products = loadProducts();
+
+            if (editingProductIndex === -1) {
+                // Add new product
+                products.push(productData);
+            } else {
+                // Update existing product
+                products[editingProductIndex] = productData;
+            }
+
+            saveProducts(products);
+            renderAdminProducts(); // Re-render the list after adding/editing
+            resetForm(); // Clear form and reset to add mode
+        });
+
+        // Add event listener for delete and edit buttons (event delegation)
+        adminProductList.addEventListener('click', function(event) {
+            if (event.target.classList.contains('delete-product-btn')) {
+                const indexToDelete = parseInt(event.target.dataset.index);
+                let products = loadProducts();
+                products.splice(indexToDelete, 1); // Remove the product at the given index
+                saveProducts(products);
+                renderAdminProducts(); // Re-render the list after deleting
+                resetForm(); // Clear form if the edited item was deleted
+            } else if (event.target.classList.contains('edit-product-btn')) {
+                editingProductIndex = parseInt(event.target.dataset.index);
+                const products = loadProducts();
+                const productToEdit = products[editingProductIndex];
+
+                // Populate the form with the product data
+                document.getElementById('productName').value = productToEdit.name;
+                document.getElementById('productDescription').value = productToEdit.description;
+                document.getElementById('productPrice').value = productToEdit.price;
+                document.getElementById('sellerName').value = productToEdit.sellerName || '';
+                document.getElementById('sellerEmail').value = productToEdit.sellerEmail || '';
+                document.getElementById('sellerPhone').value = productToEdit.sellerPhone || '';
+
+                // Set image preview
+                if (productToEdit.image) {
+                    imagePreview.src = productToEdit.image;
+                    imagePreview.style.display = 'block';
+                    currentImageBase64 = productToEdit.image;
+                } else {
+                    imagePreview.src = 'https://placehold.co/100x100/cccccc/333333?text=Preview';
+                    imagePreview.style.display = 'none';
+                    currentImageBase64 = '';
+                }
+
+                // Change form title and button text
+                formTitle.textContent = 'Editar Producto Existente';
+                submitBtn.textContent = 'Guardar Cambios';
+                cancelEditBtn.style.display = 'inline-block'; // Show cancel button
+            }
+        });
+
+        // Event listener for cancel edit button
+        cancelEditBtn.addEventListener('click', resetForm);
+
+        // Initial render of products when the admin page loads
+        document.addEventListener('DOMContentLoaded', renderAdminProducts);
+    </script>
+</body>
+</html>
