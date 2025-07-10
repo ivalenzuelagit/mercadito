@@ -141,18 +141,22 @@
                     if (initialAuthToken) {
                         await signInWithCustomToken(auth, initialAuthToken);
                         userId = auth.currentUser.uid;
+                        console.log("Authenticated with custom token. User ID:", userId);
                     } else {
                         await signInAnonymously(auth);
                         userId = auth.currentUser.uid;
+                        console.log("Authenticated anonymously. User ID:", userId);
                     }
                 } catch (error) {
                     console.error("Error signing in:", error);
                     // Generate a random ID if anonymous sign-in fails
                     userId = crypto.randomUUID();
+                    console.log("Anonymous sign-in failed, generated random User ID:", userId);
                 }
             }
             isAuthReady = true;
-            console.log("Firebase Auth Ready. User ID:", userId);
+            console.log("Firebase Auth Ready. Current User ID:", userId);
+            console.log("Current App ID:", appId); // Log appId for debugging
             // Once authenticated, start listening for product changes
             if (userId) {
                 listenForProductChanges();
@@ -242,9 +246,10 @@
         // Add event listener for form submission (add/edit product)
         addProductForm.addEventListener('submit', async function(event) {
             event.preventDefault();
+            console.log("Form submitted. Checking authentication status...");
 
             if (!isAuthReady || !userId) {
-                console.error("Firebase authentication not ready.");
+                console.error("Firebase authentication not ready or User ID is null. Cannot add/update product.");
                 return;
             }
 
@@ -268,47 +273,59 @@
             };
 
             try {
-                const productsCollectionRef = collection(db, `artifacts/${appId}/public/data/products`);
+                const productsCollectionPath = `artifacts/${appId}/public/data/products`;
+                const productsCollectionRef = collection(db, productsCollectionPath);
+                console.log("Attempting to write to Firestore collection:", productsCollectionPath);
+
                 if (editingProductId) {
                     // Update existing product
+                    console.log("Updating product with ID:", editingProductId, "with data:", productData);
                     await updateDoc(doc(productsCollectionRef, editingProductId), productData);
-                    console.log("Product updated with ID: ", editingProductId);
+                    console.log("Product successfully updated with ID: ", editingProductId);
                 } else {
                     // Add new product
+                    console.log("Adding new product with data:", productData);
                     const docRef = await addDoc(productsCollectionRef, productData);
-                    console.log("Product added with ID: ", docRef.id);
+                    console.log("Product successfully added with ID: ", docRef.id);
                 }
                 resetForm(); // Clear form and reset to add mode
             } catch (e) {
-                console.error("Error adding/updating document: ", e);
+                console.error("Error adding/updating document to Firestore: ", e);
             }
         });
 
         // Add event listener for delete and edit buttons (event delegation)
         adminProductList.addEventListener('click', async function(event) {
             if (!isAuthReady || !userId) {
-                console.error("Firebase authentication not ready.");
+                console.error("Firebase authentication not ready or User ID is null. Cannot perform delete/edit.");
                 return;
             }
 
             if (event.target.classList.contains('delete-product-btn')) {
                 const idToDelete = event.target.dataset.id;
+                console.log("Delete button clicked for product ID:", idToDelete);
                 try {
-                    const productsCollectionRef = collection(db, `artifacts/${appId}/public/data/products`);
+                    const productsCollectionPath = `artifacts/${appId}/public/data/products`;
+                    const productsCollectionRef = collection(db, productsCollectionPath);
+                    console.log("Attempting to delete from Firestore collection:", productsCollectionPath, "document ID:", idToDelete);
                     await deleteDoc(doc(productsCollectionRef, idToDelete));
-                    console.log("Product deleted with ID: ", idToDelete);
+                    console.log("Product successfully deleted with ID: ", idToDelete);
                     resetForm(); // Clear form if the edited item was deleted
                 } catch (e) {
-                    console.error("Error deleting document: ", e);
+                    console.error("Error deleting document from Firestore: ", e);
                 }
             } else if (event.target.classList.contains('edit-product-btn')) {
                 editingProductId = event.target.dataset.id;
+                console.log("Edit button clicked for product ID:", editingProductId);
                 try {
-                    const productsCollectionRef = collection(db, `artifacts/${appId}/public/data/products`);
-                    const productDoc = await getDocs(productsCollectionRef);
-                    const productToEdit = productDoc.docs.find(doc => doc.id === editingProductId)?.data();
+                    const productsCollectionPath = `artifacts/${appId}/public/data/products`;
+                    const productsCollectionRef = collection(db, productsCollectionPath);
+                    // Fetch the specific document for editing
+                    const productDocSnapshot = await getDocs(productsCollectionRef); // getDocs on collection to find by ID
+                    const productToEdit = productDocSnapshot.docs.find(doc => doc.id === editingProductId)?.data();
 
                     if (productToEdit) {
+                        console.log("Found product to edit:", productToEdit);
                         // Populate the form with the product data
                         document.getElementById('productName').value = productToEdit.name;
                         document.getElementById('productDescription').value = productToEdit.description;
@@ -332,9 +349,11 @@
                         formTitle.textContent = 'Editar Producto Existente';
                         submitBtn.textContent = 'Guardar Cambios';
                         cancelEditBtn.style.display = 'inline-block'; // Show cancel button
+                    } else {
+                        console.error("Product with ID", editingProductId, "not found for editing.");
                     }
                 } catch (e) {
-                    console.error("Error fetching product for edit: ", e);
+                    console.error("Error fetching product for edit from Firestore: ", e);
                 }
             }
         });
@@ -344,15 +363,20 @@
 
         // Listen for real-time updates from Firestore
         function listenForProductChanges() {
-            const productsCollectionRef = collection(db, `artifacts/${appId}/public/data/products`);
+            console.log("Attempting to listen for real-time product changes...");
+            const productsCollectionPath = `artifacts/${appId}/public/data/products`;
+            const productsCollectionRef = collection(db, productsCollectionPath);
+            console.log("Listening to Firestore collection:", productsCollectionPath);
+
             onSnapshot(productsCollectionRef, (snapshot) => {
+                console.log("Received Firestore snapshot. Number of documents:", snapshot.docs.length);
                 const products = [];
                 snapshot.forEach(doc => {
                     products.push({ id: doc.id, ...doc.data() });
                 });
                 renderAdminProducts(products);
             }, (error) => {
-                console.error("Error listening for product changes: ", error);
+                console.error("Error listening for product changes from Firestore: ", error);
             });
         }
     </script>
