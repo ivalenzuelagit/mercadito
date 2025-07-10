@@ -94,8 +94,7 @@
             </div>
             <nav>
                 <ul class="flex space-x-4">
-        
-
+                    <li><a href="./admin.html" class="text-gray-700 hover:text-blue-600 font-semibold rounded-md p-2 transition-colors duration-200">Administrar Productos</a></li>
                 </ul>
             </nav>
         </div>
@@ -125,10 +124,54 @@
         </div>
     </div>
 
-    <script>
-        const productGrid = document.getElementById('productGrid');
-        const localStorageKey = 'mercadoProducts'; // Key for localStorage
+    <script type="module">
+        // Import Firebase modules
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+        // Firebase configuration (provided by the environment)
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        let userId = null; // To store the current user ID
+        let isAuthReady = false; // Flag to indicate if authentication is ready
+
+        // Authenticate user
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                userId = user.uid;
+            } else {
+                // Sign in anonymously if no user is logged in
+                try {
+                    if (initialAuthToken) {
+                        await signInWithCustomToken(auth, initialAuthToken);
+                        userId = auth.currentUser.uid;
+                    } else {
+                        await signInAnonymously(auth);
+                        userId = auth.currentUser.uid;
+                    }
+                } catch (error) {
+                    console.error("Error signing in:", error);
+                    // Generate a random ID if anonymous sign-in fails
+                    userId = crypto.randomUUID();
+                }
+            }
+            isAuthReady = true;
+            console.log("Firebase Auth Ready. User ID:", userId);
+            // Once authenticated, start listening for product changes
+            if (userId) {
+                listenForProductChanges();
+            }
+        });
+
+        const productGrid = document.getElementById('productGrid');
         const contactModal = document.getElementById('contactModal');
         const closeModalBtn = document.getElementById('closeModal');
         const modalSellerName = document.getElementById('modalSellerName');
@@ -172,12 +215,6 @@
             }
         }
 
-        // Load products from localStorage on page load
-        function loadProducts() {
-            const products = JSON.parse(localStorage.getItem(localStorageKey)) || [];
-            renderProducts(products);
-        }
-
         // Event listener for opening the modal
         productGrid.addEventListener('click', function(event) {
             if (event.target.classList.contains('contact-info-btn')) {
@@ -201,16 +238,19 @@
             }
         });
 
-
-        // Listen for changes in localStorage (e.g., from admin page)
-        window.addEventListener('storage', (event) => {
-            if (event.key === localStorageKey) {
-                loadProducts(); // Reload products if localStorage changes
-            }
-        });
-
-        // Initial load
-        document.addEventListener('DOMContentLoaded', loadProducts);
+        // Listen for real-time updates from Firestore
+        function listenForProductChanges() {
+            const productsCollectionRef = collection(db, `artifacts/${appId}/public/data/products`);
+            onSnapshot(productsCollectionRef, (snapshot) => {
+                const products = [];
+                snapshot.forEach(doc => {
+                    products.push({ id: doc.id, ...doc.data() });
+                });
+                renderProducts(products);
+            }, (error) => {
+                console.error("Error listening for product changes: ", error);
+            });
+        }
     </script>
 </body>
 </html>
