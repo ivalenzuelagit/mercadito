@@ -139,12 +139,19 @@
         
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        const globalApiKey = typeof __api_key !== 'undefined' ? __api_key : ''; // Get API key from global __api_key
 
         // Ensure projectId is set in firebaseConfig, using appId as fallback
         if (!firebaseConfig.projectId) {
             firebaseConfig.projectId = appId;
             console.warn("Firebase projectId was not provided in __firebase_config. Using appId as projectId:", appId);
         }
+        // Ensure apiKey is set, prioritizing globalApiKey if available
+        if (!firebaseConfig.apiKey && globalApiKey) {
+            firebaseConfig.apiKey = globalApiKey;
+            console.log("Firebase apiKey set from global __api_key.");
+        }
+
         // Log the final firebaseConfig before initialization
         console.log("Final firebaseConfig before initializeApp:", firebaseConfig);
 
