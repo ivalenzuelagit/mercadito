@@ -112,7 +112,53 @@
         <p>&copy; 2025 Mis Productos. Todos los derechos reservados.</p>
     </footer>
 
-    <script>
+    <script type="module">
+        // Import Firebase modules
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Firebase configuration (provided by the environment)
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        let userId = null; // To store the current user ID
+        let isAuthReady = false; // Flag to indicate if authentication is ready
+
+        // Authenticate user
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                userId = user.uid;
+            } else {
+                // Sign in anonymously if no user is logged in
+                try {
+                    if (initialAuthToken) {
+                        await signInWithCustomToken(auth, initialAuthToken);
+                        userId = auth.currentUser.uid;
+                    } else {
+                        await signInAnonymously(auth);
+                        userId = auth.currentUser.uid;
+                    }
+                } catch (error) {
+                    console.error("Error signing in:", error);
+                    // Generate a random ID if anonymous sign-in fails
+                    userId = crypto.randomUUID();
+                }
+            }
+            isAuthReady = true;
+            console.log("Firebase Auth Ready. User ID:", userId);
+            // Once authenticated, start listening for product changes
+            if (userId) {
+                listenForProductChanges();
+            }
+        });
+
         const addProductForm = document.getElementById('addProductForm');
         const formTitle = document.getElementById('formTitle');
         const submitBtn = document.getElementById('submitBtn');
@@ -121,32 +167,18 @@
         const imagePreview = document.getElementById('imagePreview');
         const adminProductList = document.getElementById('adminProductList');
         const noProductsMessage = document.getElementById('noProductsMessage');
-        const localStorageKey = 'mercadoProducts'; // Key for localStorage
 
         let currentImageBase64 = ''; // To store the Base64 string of the selected image
-        let editingProductIndex = -1; // -1 means no product is being edited
-
-        // Function to save products to localStorage
-        function saveProducts(products) {
-            localStorage.setItem(localStorageKey, JSON.stringify(products));
-            // Dispatch a storage event to notify other tabs/windows (like index.html)
-            window.dispatchEvent(new Event('storage'));
-        }
-
-        // Function to load products from localStorage
-        function loadProducts() {
-            return JSON.parse(localStorage.getItem(localStorageKey)) || [];
-        }
+        let editingProductId = null; // Stores the Firestore document ID when editing
 
         // Function to render products in the admin list
-        function renderAdminProducts() {
-            const products = loadProducts();
+        function renderAdminProducts(products) {
             adminProductList.innerHTML = ''; // Clear existing list
             if (products.length === 0) {
                 noProductsMessage.style.display = 'block';
             } else {
                 noProductsMessage.style.display = 'none';
-                products.forEach((product, index) => {
+                products.forEach(product => {
                     const productItem = document.createElement('div');
                     productItem.classList.add(
                         'admin-product-item', 'flex', 'items-center', 'justify-between', 'p-3',
@@ -164,10 +196,10 @@
                             </div>
                         </div>
                         <div class="flex space-x-2">
-                            <button data-index="${index}" class="edit-product-btn bg-yellow-500 text-white py-1 px-3 rounded-md text-sm focus:outline-none focus:shadow-outline">
+                            <button data-id="${product.id}" class="edit-product-btn bg-yellow-500 text-white py-1 px-3 rounded-md text-sm focus:outline-none focus:shadow-outline">
                                 Editar
                             </button>
-                            <button data-index="${index}" class="delete-product-btn bg-red-500 text-white py-1 px-3 rounded-md text-sm focus:outline-none focus:shadow-outline">
+                            <button data-id="${product.id}" class="delete-product-btn bg-red-500 text-white py-1 px-3 rounded-md text-sm focus:outline-none focus:shadow-outline">
                                 Eliminar
                             </button>
                         </div>
@@ -183,7 +215,7 @@
             imagePreview.src = 'https://placehold.co/100x100/cccccc/333333?text=Preview';
             imagePreview.style.display = 'none';
             currentImageBase64 = '';
-            editingProductIndex = -1;
+            editingProductId = null;
             formTitle.textContent = 'Agregar Nuevo Producto';
             submitBtn.textContent = 'Agregar Producto';
             cancelEditBtn.style.display = 'none';
@@ -208,8 +240,13 @@
         });
 
         // Add event listener for form submission (add/edit product)
-        addProductForm.addEventListener('submit', function(event) {
+        addProductForm.addEventListener('submit', async function(event) {
             event.preventDefault();
+
+            if (!isAuthReady || !userId) {
+                console.error("Firebase authentication not ready.");
+                return;
+            }
 
             const productName = document.getElementById('productName').value;
             const productDescription = document.getElementById('productDescription').value;
@@ -221,76 +258,103 @@
             const productImage = currentImageBase64 || 'https://placehold.co/200x200/cccccc/333333?text=No+Image'; // Fallback if no image selected
 
             const productData = {
-                id: editingProductIndex === -1 ? Date.now() : loadProducts()[editingProductIndex].id, // Keep original ID if editing
                 name: productName,
                 description: productDescription,
                 price: productPrice,
-                image: productImage, // Now stores Base64 or fallback URL
+                image: productImage,
                 sellerName: sellerName,
                 sellerEmail: sellerEmail,
                 sellerPhone: sellerPhone
             };
 
-            let products = loadProducts();
-
-            if (editingProductIndex === -1) {
-                // Add new product
-                products.push(productData);
-            } else {
-                // Update existing product
-                products[editingProductIndex] = productData;
+            try {
+                const productsCollectionRef = collection(db, `artifacts/${appId}/public/data/products`);
+                if (editingProductId) {
+                    // Update existing product
+                    await updateDoc(doc(productsCollectionRef, editingProductId), productData);
+                    console.log("Product updated with ID: ", editingProductId);
+                } else {
+                    // Add new product
+                    const docRef = await addDoc(productsCollectionRef, productData);
+                    console.log("Product added with ID: ", docRef.id);
+                }
+                resetForm(); // Clear form and reset to add mode
+            } catch (e) {
+                console.error("Error adding/updating document: ", e);
             }
-
-            saveProducts(products);
-            renderAdminProducts(); // Re-render the list after adding/editing
-            resetForm(); // Clear form and reset to add mode
         });
 
         // Add event listener for delete and edit buttons (event delegation)
-        adminProductList.addEventListener('click', function(event) {
+        adminProductList.addEventListener('click', async function(event) {
+            if (!isAuthReady || !userId) {
+                console.error("Firebase authentication not ready.");
+                return;
+            }
+
             if (event.target.classList.contains('delete-product-btn')) {
-                const indexToDelete = parseInt(event.target.dataset.index);
-                let products = loadProducts();
-                products.splice(indexToDelete, 1); // Remove the product at the given index
-                saveProducts(products);
-                renderAdminProducts(); // Re-render the list after deleting
-                resetForm(); // Clear form if the edited item was deleted
-            } else if (event.target.classList.contains('edit-product-btn')) {
-                editingProductIndex = parseInt(event.target.dataset.index);
-                const products = loadProducts();
-                const productToEdit = products[editingProductIndex];
-
-                // Populate the form with the product data
-                document.getElementById('productName').value = productToEdit.name;
-                document.getElementById('productDescription').value = productToEdit.description;
-                document.getElementById('productPrice').value = productToEdit.price;
-                document.getElementById('sellerName').value = productToEdit.sellerName || '';
-                document.getElementById('sellerEmail').value = productToEdit.sellerEmail || '';
-                document.getElementById('sellerPhone').value = productToEdit.sellerPhone || '';
-
-                // Set image preview
-                if (productToEdit.image) {
-                    imagePreview.src = productToEdit.image;
-                    imagePreview.style.display = 'block';
-                    currentImageBase64 = productToEdit.image;
-                } else {
-                    imagePreview.src = 'https://placehold.co/100x100/cccccc/333333?text=Preview';
-                    imagePreview.style.display = 'none';
-                    currentImageBase64 = '';
+                const idToDelete = event.target.dataset.id;
+                try {
+                    const productsCollectionRef = collection(db, `artifacts/${appId}/public/data/products`);
+                    await deleteDoc(doc(productsCollectionRef, idToDelete));
+                    console.log("Product deleted with ID: ", idToDelete);
+                    resetForm(); // Clear form if the edited item was deleted
+                } catch (e) {
+                    console.error("Error deleting document: ", e);
                 }
+            } else if (event.target.classList.contains('edit-product-btn')) {
+                editingProductId = event.target.dataset.id;
+                try {
+                    const productsCollectionRef = collection(db, `artifacts/${appId}/public/data/products`);
+                    const productDoc = await getDocs(productsCollectionRef);
+                    const productToEdit = productDoc.docs.find(doc => doc.id === editingProductId)?.data();
 
-                // Change form title and button text
-                formTitle.textContent = 'Editar Producto Existente';
-                submitBtn.textContent = 'Guardar Cambios';
-                cancelEditBtn.style.display = 'inline-block'; // Show cancel button
+                    if (productToEdit) {
+                        // Populate the form with the product data
+                        document.getElementById('productName').value = productToEdit.name;
+                        document.getElementById('productDescription').value = productToEdit.description;
+                        document.getElementById('productPrice').value = productToEdit.price;
+                        document.getElementById('sellerName').value = productToEdit.sellerName || '';
+                        document.getElementById('sellerEmail').value = productToEdit.sellerEmail || '';
+                        document.getElementById('sellerPhone').value = productToEdit.sellerPhone || '';
+
+                        // Set image preview
+                        if (productToEdit.image) {
+                            imagePreview.src = productToEdit.image;
+                            imagePreview.style.display = 'block';
+                            currentImageBase64 = productToEdit.image;
+                        } else {
+                            imagePreview.src = 'https://placehold.co/100x100/cccccc/333333?text=Preview';
+                            imagePreview.style.display = 'none';
+                            currentImageBase64 = '';
+                        }
+
+                        // Change form title and button text
+                        formTitle.textContent = 'Editar Producto Existente';
+                        submitBtn.textContent = 'Guardar Cambios';
+                        cancelEditBtn.style.display = 'inline-block'; // Show cancel button
+                    }
+                } catch (e) {
+                    console.error("Error fetching product for edit: ", e);
+                }
             }
         });
 
         // Event listener for cancel edit button
         cancelEditBtn.addEventListener('click', resetForm);
 
-        // Initial render of products when the admin page loads
-        document.addEventListener('DOMContentLoaded', renderAdminProducts);
+        // Listen for real-time updates from Firestore
+        function listenForProductChanges() {
+            const productsCollectionRef = collection(db, `artifacts/${appId}/public/data/products`);
+            onSnapshot(productsCollectionRef, (snapshot) => {
+                const products = [];
+                snapshot.forEach(doc => {
+                    products.push({ id: doc.id, ...doc.data() });
+                });
+                renderAdminProducts(products);
+            }, (error) => {
+                console.error("Error listening for product changes: ", error);
+            });
+        }
     </script>
 </body>
 </html>
