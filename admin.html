@@ -136,6 +136,7 @@
         }
 
         // Initialize Firebase
+        // IMPORTANT: Do not manually set apiKey here. The environment handles it.
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const auth = getAuth(app);
