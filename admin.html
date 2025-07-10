@@ -123,6 +123,12 @@
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
+        // Ensure projectId is set in firebaseConfig, using appId as fallback
+        if (!firebaseConfig.projectId) {
+            firebaseConfig.projectId = appId;
+            console.warn("Firebase projectId was not provided in __firebase_config. Using appId as projectId:", appId);
+        }
+
         // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
