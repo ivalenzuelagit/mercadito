@@ -113,87 +113,17 @@
     </footer>
 
     <script type="module">
-        // Import Firebase modules
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        // Import Supabase client
+        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
-        // Firebase configuration (provided by the environment)
-        let firebaseConfig = {
-            apiKey: "",
-            authDomain: "",
-            projectId: "",
-            storageBucket: "",
-            messagingSenderId: "",
-            appId: "",
-            measurementId: ""
-        };
+        // --- Configuración de Supabase ---
+        // ¡IMPORTANTE! Reemplaza estos valores con la URL y la Anon Key de tu proyecto Supabase.
+        // Puedes encontrarlos en tu panel de control de Supabase (Settings -> API).
+        const SUPABASE_URL = 'https://rozouuqdkkbcgzuxrung.supabase.co'; // <--- ¡ACTUALIZA ESTO!
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJvem91dXFka2tiY2d6dXhydW5nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIxNzgzOTgsImV4cCI6MjA2Nzc1NDM5OH0.ebiSW7hJukWSJZEcnur7beXNB5Rkq9LpcenijS3yOqw'; // <--- ¡ACTUALIZA ESTO!
 
-        try {
-            const envFirebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-            // Merge environment config into our default config
-            Object.assign(firebaseConfig, envFirebaseConfig);
-        } catch (e) {
-            console.error("Error parsing __firebase_config:", e);
-        }
-        
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-        const globalApiKey = typeof __api_key !== 'undefined' ? __api_key : ''; // Get API key from global __api_key
-
-        // Ensure projectId is set in firebaseConfig, using appId as fallback
-        if (!firebaseConfig.projectId) {
-            firebaseConfig.projectId = appId;
-            console.warn("Firebase projectId was not provided in __firebase_config. Using appId as projectId:", appId);
-        }
-        // Ensure apiKey is set, prioritizing globalApiKey if available
-        if (!firebaseConfig.apiKey && globalApiKey) {
-            firebaseConfig.apiKey = globalApiKey;
-            console.log("Firebase apiKey set from global __api_key.");
-        }
-
-        // Log the final firebaseConfig before initialization
-        console.log("Final firebaseConfig before initializeApp:", firebaseConfig);
-
-        // Initialize Firebase
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
-
-        let userId = null; // To store the current user ID
-        let isAuthReady = false; // Flag to indicate if authentication is ready
-
-        // Authenticate user
-        onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                userId = user.uid;
-            } else {
-                // Sign in anonymously if no user is logged in
-                try {
-                    if (initialAuthToken) {
-                        await signInWithCustomToken(auth, initialAuthToken);
-                        userId = auth.currentUser.uid;
-                        console.log("Authenticated with custom token. User ID:", userId);
-                    } else {
-                        await signInAnonymously(auth);
-                        userId = auth.currentUser.uid;
-                        console.log("Authenticated anonymously. User ID:", userId);
-                    }
-                } catch (error) {
-                    console.error("Error signing in:", error);
-                    // Generate a random ID if anonymous sign-in fails
-                    userId = crypto.randomUUID();
-                    console.log("Anonymous sign-in failed, generated random User ID:", userId);
-                }
-            }
-            isAuthReady = true;
-            console.log("Firebase Auth Ready. Current User ID:", userId);
-            console.log("Current App ID:", appId); // Log appId for debugging
-            // Once authenticated, start listening for product changes
-            if (userId) {
-                listenForProductChanges();
-            }
-        });
+        const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        console.log("Supabase client initialized.");
 
         const addProductForm = document.getElementById('addProductForm');
         const formTitle = document.getElementById('formTitle');
@@ -205,7 +135,7 @@
         const noProductsMessage = document.getElementById('noProductsMessage');
 
         let currentImageBase64 = ''; // To store the Base64 string of the selected image
-        let editingProductId = null; // Stores the Firestore document ID when editing
+        let editingProductId = null; // Stores the Supabase row ID when editing
 
         // Function to render products in the admin list
         function renderAdminProducts(products) {
@@ -257,6 +187,21 @@
             cancelEditBtn.style.display = 'none';
         }
 
+        // Function to load products from Supabase
+        async function loadProducts() {
+            console.log("Loading products from Supabase...");
+            const { data, error } = await supabase
+                .from('products') // Nombre de tu tabla de productos en Supabase
+                .select('*'); // Selecciona todas las columnas
+
+            if (error) {
+                console.error("Error loading products from Supabase:", error);
+            } else {
+                console.log("Products loaded from Supabase:", data);
+                renderAdminProducts(data);
+            }
+        }
+
         // Event listener for file input change
         productImageFile.addEventListener('change', function(event) {
             const file = event.target.files[0];
@@ -278,12 +223,7 @@
         // Add event listener for form submission (add/edit product)
         addProductForm.addEventListener('submit', async function(event) {
             event.preventDefault();
-            console.log("Form submitted. Checking authentication status...");
-
-            if (!isAuthReady || !userId) {
-                console.error("Firebase authentication not ready or User ID is null. Cannot add/update product.");
-                return;
-            }
+            console.log("Form submitted. Attempting to save product to Supabase...");
 
             const productName = document.getElementById('productName').value;
             const productDescription = document.getElementById('productDescription').value;
@@ -305,56 +245,61 @@
             };
 
             try {
-                const productsCollectionPath = `artifacts/${appId}/public/data/products`;
-                const productsCollectionRef = collection(db, productsCollectionPath);
-                console.log("Attempting to write to Firestore collection:", productsCollectionPath);
-
                 if (editingProductId) {
                     // Update existing product
                     console.log("Updating product with ID:", editingProductId, "with data:", productData);
-                    await updateDoc(doc(productsCollectionRef, editingProductId), productData);
-                    console.log("Product successfully updated with ID: ", editingProductId);
+                    const { data, error } = await supabase
+                        .from('products')
+                        .update(productData)
+                        .eq('id', editingProductId); // 'id' es la clave primaria en Supabase
+
+                    if (error) throw error;
+                    console.log("Product successfully updated:", data);
                 } else {
                     // Add new product
                     console.log("Adding new product with data:", productData);
-                    const docRef = await addDoc(productsCollectionRef, productData);
-                    console.log("Product successfully added with ID: ", docRef.id);
+                    const { data, error } = await supabase
+                        .from('products')
+                        .insert([productData]); // insert espera un array de objetos
+
+                    if (error) throw error;
+                    console.log("Product successfully added:", data);
                 }
                 resetForm(); // Clear form and reset to add mode
             } catch (e) {
-                console.error("Error adding/updating document to Firestore: ", e);
+                console.error("Error adding/updating document to Supabase: ", e.message);
             }
         });
 
         // Add event listener for delete and edit buttons (event delegation)
         adminProductList.addEventListener('click', async function(event) {
-            if (!isAuthReady || !userId) {
-                console.error("Firebase authentication not ready or User ID is null. Cannot perform delete/edit.");
-                return;
-            }
-
             if (event.target.classList.contains('delete-product-btn')) {
                 const idToDelete = event.target.dataset.id;
                 console.log("Delete button clicked for product ID:", idToDelete);
                 try {
-                    const productsCollectionPath = `artifacts/${appId}/public/data/products`;
-                    const productsCollectionRef = collection(db, productsCollectionPath);
-                    console.log("Attempting to delete from Firestore collection:", productsCollectionPath, "document ID:", idToDelete);
-                    await deleteDoc(doc(productsCollectionRef, idToDelete));
+                    const { error } = await supabase
+                        .from('products')
+                        .delete()
+                        .eq('id', idToDelete); // Elimina la fila con el ID correspondiente
+
+                    if (error) throw error;
                     console.log("Product successfully deleted with ID: ", idToDelete);
                     resetForm(); // Clear form if the edited item was deleted
                 } catch (e) {
-                    console.error("Error deleting document from Firestore: ", e);
+                    console.error("Error deleting document from Supabase: ", e.message);
                 }
             } else if (event.target.classList.contains('edit-product-btn')) {
                 editingProductId = event.target.dataset.id;
                 console.log("Edit button clicked for product ID:", editingProductId);
                 try {
-                    const productsCollectionPath = `artifacts/${appId}/public/data/products`;
-                    const productsCollectionRef = collection(db, productsCollectionPath);
-                    // Fetch the specific document for editing
-                    const productDocSnapshot = await getDocs(productsCollectionRef); // getDocs on collection to find by ID
-                    const productToEdit = productDocSnapshot.docs.find(doc => doc.id === editingProductId)?.data();
+                    // Obtener el producto específico para editar
+                    const { data: productToEdit, error } = await supabase
+                        .from('products')
+                        .select('*')
+                        .eq('id', editingProductId)
+                        .single(); // .single() espera un solo resultado
+
+                    if (error) throw error;
 
                     if (productToEdit) {
                         console.log("Found product to edit:", productToEdit);
@@ -385,7 +330,7 @@
                         console.error("Product with ID", editingProductId, "not found for editing.");
                     }
                 } catch (e) {
-                    console.error("Error fetching product for edit from Firestore: ", e);
+                    console.error("Error fetching product for edit from Supabase: ", e.message);
                 }
             }
         });
@@ -393,24 +338,23 @@
         // Event listener for cancel edit button
         cancelEditBtn.addEventListener('click', resetForm);
 
-        // Listen for real-time updates from Firestore
+        // Listen for real-time updates from Supabase
         function listenForProductChanges() {
-            console.log("Attempting to listen for real-time product changes...");
-            const productsCollectionPath = `artifacts/${appId}/public/data/products`;
-            const productsCollectionRef = collection(db, productsCollectionPath);
-            console.log("Listening to Firestore collection:", productsCollectionPath);
-
-            onSnapshot(productsCollectionRef, (snapshot) => {
-                console.log("Received Firestore snapshot. Number of documents:", snapshot.docs.length);
-                const products = [];
-                snapshot.forEach(doc => {
-                    products.push({ id: doc.id, ...doc.data() });
-                });
-                renderAdminProducts(products);
-            }, (error) => {
-                console.error("Error listening for product changes from Firestore: ", error);
-            });
+            console.log("Attempting to listen for real-time product changes from Supabase...");
+            supabase
+                .from('products')
+                .on('*', payload => { // '*' escucha todos los eventos (INSERT, UPDATE, DELETE)
+                    console.log('Realtime change received from Supabase:', payload);
+                    loadProducts(); // Recarga todos los productos para mantener la UI sincronizada
+                })
+                .subscribe();
+            
+            // Carga inicial de productos al iniciar la escucha
+            loadProducts(); 
         }
+
+        // Iniciar la escucha de cambios de productos cuando la página carga
+        document.addEventListener('DOMContentLoaded', listenForProductChanges);
     </script>
 </body>
 </html>
