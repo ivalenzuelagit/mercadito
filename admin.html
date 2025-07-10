@@ -119,9 +119,20 @@
         import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Firebase configuration (provided by the environment)
-        let firebaseConfig = {};
+        let firebaseConfig = {
+            apiKey: "",
+            authDomain: "",
+            projectId: "",
+            storageBucket: "",
+            messagingSenderId: "",
+            appId: "",
+            measurementId: ""
+        };
+
         try {
-            firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+            const envFirebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+            // Merge environment config into our default config
+            Object.assign(firebaseConfig, envFirebaseConfig);
         } catch (e) {
             console.error("Error parsing __firebase_config:", e);
         }
@@ -134,9 +145,10 @@
             firebaseConfig.projectId = appId;
             console.warn("Firebase projectId was not provided in __firebase_config. Using appId as projectId:", appId);
         }
+        // Log the final firebaseConfig before initialization
+        console.log("Final firebaseConfig before initializeApp:", firebaseConfig);
 
         // Initialize Firebase
-        // IMPORTANT: Do not manually set apiKey here. The environment handles it.
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const auth = getAuth(app);
