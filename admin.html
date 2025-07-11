@@ -117,10 +117,8 @@
         import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
         // --- Configuración de Supabase ---
-        // ¡IMPORTANTE! Reemplaza estos valores con la URL y la Anon Key de tu proyecto Supabase.
-        // Puedes encontrarlos en tu panel de control de Supabase (Settings -> API).
-        const SUPABASE_URL = 'https://rozouuqdkkbcgzuxrung.supabase.co'; // <--- ¡ACTUALIZA ESTO!
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJvem91dXFka2tiY2d6dXhydW5nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIxNzgzOTgsImV4cCI6MjA2Nzc1NDM5OH0.ebiSW7hJukWSJZEcnur7beXNB5Rkq9LpcenijS3yOqw'; // <--- ¡ACTUALIZA ESTO!
+        const SUPABASE_URL = 'https://rozouuqdkkbcgzuxrung.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJvem91dXFka2tiY2d6dXhydW5nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIxNzgzOTgsImV4cCI6MjA2Nzc1NDM5OH0.ebiSW7hJukWSJZEcnur7beXNB5Rkq9LpcenijS3yOqw';
 
         const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         console.log("Supabase client initialized.");
@@ -134,8 +132,27 @@
         const adminProductList = document.getElementById('adminProductList');
         const noProductsMessage = document.getElementById('noProductsMessage');
 
-        let currentImageBase64 = ''; // To store the Base64 string of the selected image
+        let currentImageBase64 = ''; // To store the Base64 string of the selected image for preview
         let editingProductId = null; // Stores the Supabase row ID when editing
+
+        // Function to load products from Supabase
+        async function loadProducts() {
+            console.log("Loading products from Supabase...");
+            try {
+                const { data: products, error } = await supabase
+                    .from('products')
+                    .select('*')
+                    .order('created_at', { ascending: false }); // Ordena por fecha de creación (más nuevos primero)
+
+                if (error) throw error;
+                
+                console.log("Products loaded successfully:", products);
+                renderAdminProducts(products || []); // Render the products or empty array if null
+            } catch (e) {
+                console.error("Error loading products from Supabase: ", e.message);
+                alert("Error al cargar los productos: " + e.message);
+            }
+        }
 
         // Function to render products in the admin list
         function renderAdminProducts(products) {
@@ -180,26 +197,12 @@
             addProductForm.reset();
             imagePreview.src = 'https://placehold.co/100x100/cccccc/333333?text=Preview';
             imagePreview.style.display = 'none';
-            currentImageBase64 = '';
+            currentImageBase64 = ''; // Clear Base64 for new product
             editingProductId = null;
             formTitle.textContent = 'Agregar Nuevo Producto';
             submitBtn.textContent = 'Agregar Producto';
             cancelEditBtn.style.display = 'none';
-        }
-
-        // Function to load products from Supabase
-        async function loadProducts() {
-            console.log("Loading products from Supabase...");
-            const { data, error } = await supabase
-                .from('products') // Nombre de tu tabla de productos en Supabase
-                .select('*'); // Selecciona todas las columnas
-
-            if (error) {
-                console.error("Error loading products from Supabase:", error);
-            } else {
-                console.log("Products loaded from Supabase:", data);
-                renderAdminProducts(data);
-            }
+            loadProducts(); // Refresh the product list after reset
         }
 
         // Event listener for file input change
@@ -210,9 +213,9 @@
                 reader.onload = function(e) {
                     imagePreview.src = e.target.result;
                     imagePreview.style.display = 'block'; // Show the preview image
-                    currentImageBase64 = e.target.result; // Store Base64 string
+                    currentImageBase64 = e.target.result; // Store Base64 string for potential upload
                 };
-                reader.readAsDataURL(file); // Read file as Base64 URL
+                reader.readAsDataURL(file); // Read file as Base64 URL for preview
             } else {
                 imagePreview.src = 'https://placehold.co/100x100/cccccc/333333?text=Preview';
                 imagePreview.style.display = 'none'; // Hide if no file selected
@@ -231,14 +234,46 @@
             const sellerName = document.getElementById('sellerName').value;
             const sellerEmail = document.getElementById('sellerEmail').value;
             const sellerPhone = document.getElementById('sellerPhone').value;
+            const imageFile = productImageFile.files[0]; // Get the actual file object
 
-            const productImage = currentImageBase64 || 'https://placehold.co/200x200/cccccc/333333?text=No+Image'; // Fallback if no image selected
+            let imageUrl = ''; // This will store the URL from Supabase Storage or a placeholder
+
+            if (imageFile) {
+                // Upload image to Supabase Storage
+                const filePath = `product_images/${Date.now()}_${imageFile.name}`; // Unique file path
+                const { data: uploadData, error: uploadError } = await supabase.storage
+                    .from('product-images') // Reemplaza 'product-images' con el nombre de tu bucket
+                    .upload(filePath, imageFile, {
+                        cacheControl: '3600',
+                        upsert: false // Set to true if you want to overwrite existing files with the same path
+                    });
+
+                if (uploadError) {
+                    console.error("Error uploading image to Supabase Storage:", uploadError.message);
+                    alert("Error al subir la imagen: " + uploadError.message);
+                    return; // Stop execution if upload fails
+                }
+
+                // Get public URL of the uploaded image
+                const { data: publicUrlData } = supabase.storage
+                    .from('product-images') // Reemplaza 'product-images' con el nombre de tu bucket
+                    .getPublicUrl(filePath);
+                
+                imageUrl = publicUrlData.publicUrl;
+                console.log("Image uploaded to:", imageUrl);
+
+            } else if (editingProductId && currentImageBase64 && !currentImageBase64.startsWith('https://placehold.co')) {
+                // If editing and no new file selected, but there was an existing image URL, keep it
+                imageUrl = currentImageBase64; 
+            } else {
+                imageUrl = 'https://placehold.co/200x200/cccccc/333333?text=No+Image'; // Fallback if no image selected
+            }
 
             const productData = {
                 name: productName,
                 description: productDescription,
                 price: productPrice,
-                image: productImage,
+                image: imageUrl, // Store the URL, not Base64
                 sellerName: sellerName,
                 sellerEmail: sellerEmail,
                 sellerPhone: sellerPhone
@@ -268,6 +303,7 @@
                 resetForm(); // Clear form and reset to add mode
             } catch (e) {
                 console.error("Error adding/updating document to Supabase: ", e.message);
+                alert("Error al guardar el producto: " + e.message);
             }
         });
 
@@ -277,6 +313,35 @@
                 const idToDelete = event.target.dataset.id;
                 console.log("Delete button clicked for product ID:", idToDelete);
                 try {
+                    // Optional: Get product to delete image from storage
+                    const { data: productToDelete, error: fetchError } = await supabase
+                        .from('products')
+                        .select('image')
+                        .eq('id', idToDelete)
+                        .single();
+
+                    if (fetchError) {
+                        console.error("Error fetching product for image deletion:", fetchError.message);
+                        // Continue with product deletion even if image fetch fails
+                    } else if (productToDelete && productToDelete.image && !productToDelete.image.startsWith('https://placehold.co')) {
+                        // Attempt to delete image from storage if it's not a placeholder
+                        const imageUrlParts = productToDelete.image.split('/');
+                        const imagePath = imageUrlParts.slice(imageUrlParts.indexOf('product_images')).join('/'); // Adjust based on your bucket structure
+                        
+                        console.log("Attempting to delete image from storage:", imagePath);
+                        const { error: deleteImageError } = await supabase.storage
+                            .from('product-images') // Reemplaza con el nombre de tu bucket
+                            .remove([imagePath]);
+
+                        if (deleteImageError) {
+                            console.error("Error deleting image from Supabase Storage:", deleteImageError.message);
+                            // Continue with product deletion even if image deletion fails
+                        } else {
+                            console.log("Image successfully deleted from storage.");
+                        }
+                    }
+
+                    // Delete product from database
                     const { error } = await supabase
                         .from('products')
                         .delete()
@@ -287,6 +352,7 @@
                     resetForm(); // Clear form if the edited item was deleted
                 } catch (e) {
                     console.error("Error deleting document from Supabase: ", e.message);
+                    alert("Error al eliminar el producto: " + e.message);
                 }
             } else if (event.target.classList.contains('edit-product-btn')) {
                 editingProductId = event.target.dataset.id;
@@ -315,7 +381,7 @@
                         if (productToEdit.image) {
                             imagePreview.src = productToEdit.image;
                             imagePreview.style.display = 'block';
-                            currentImageBase64 = productToEdit.image;
+                            currentImageBase64 = productToEdit.image; // Store the URL for existing image
                         } else {
                             imagePreview.src = 'https://placehold.co/100x100/cccccc/333333?text=Preview';
                             imagePreview.style.display = 'none';
@@ -331,6 +397,7 @@
                     }
                 } catch (e) {
                     console.error("Error fetching product for edit from Supabase: ", e.message);
+                    alert("Error al cargar el producto para editar: " + e.message);
                 }
             }
         });
