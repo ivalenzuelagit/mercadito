@@ -421,7 +421,10 @@
         }
 
         // Iniciar la escucha de cambios de productos cuando la página carga
-        document.addEventListener('DOMContentLoaded', listenForProductChanges);
+        document.addEventListener('DOMContentLoaded', () => {
+    loadProducts(); // Carga inmediata de productos al cargar la página
+    listenForProductChanges();
+});
     </script>
 </body>
 </html>
