@@ -83,7 +83,6 @@
                 </div>
             </form>
         </section>
-
         <!-- Lista de productos -->
         <section class="bg-white p-6 rounded-lg shadow-md">
             <h2 class="text-2xl font-semibold mb-4 text-gray-800">Productos Existentes</h2>
@@ -243,7 +242,7 @@
                         .eq('id', editingProductId);
                     if (error) throw error;
                 } else {
-                    productData.publicado = false; // Por defecto, nuevo producto queda como no publicado
+                    productData.publicado = false;
                     const { data, error } = await supabase
                         .from('products')
                         .insert([productData]);
@@ -303,4 +302,32 @@
                             imagePreview.style.display = 'none';
                             currentImageBase64 = '';
                         }
-                        formTitle.textContent
+                        formTitle.textContent = 'Editar Producto Existente';
+                        submitBtn.textContent = 'Guardar Cambios';
+                        cancelEditBtn.style.display = 'inline-block';
+                    }
+                } catch (e) {
+                    alert("Error al cargar el producto para editar: " + e.message);
+                }
+            } else if (event.target.classList.contains('toggle-publish-btn')) {
+                const idToToggle = event.target.dataset.id;
+                const isPublished = event.target.textContent.includes('Despublicar');
+                try {
+                    await supabase
+                        .from('products')
+                        .update({ publicado: !isPublished })
+                        .eq('id', idToToggle);
+                    loadProducts();
+                } catch (e) {
+                    alert("Error al actualizar estado de publicación: " + e.message);
+                }
+            }
+        });
+
+        cancelEditBtn.addEventListener('click', resetForm);
+
+        // Cargar productos al inicio
+        document.addEventListener('DOMContentLoaded', loadProducts);
+    </script>
+</body>
+</html>
