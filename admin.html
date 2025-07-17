@@ -4,43 +4,38 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Administrar Productos</title>
-    <!-- Tailwind CSS CDN for easy styling -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* Custom styles to ensure rounded corners and Inter font */
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #f0f2f5; /* Light gray background, similar to Mercado Libre */
+            background-color: #f0f2f5;
             color: #333;
-            /* Background image styles */
-            background-image: url('https://lh6.googleusercontent.com/-MdbItJIG9Hg/Vr3jWpDNeZI/AAAAAAAAADw/fynGmEyoX1wF2epMuIKh9x3dGwMaIwsPgCJkC/photo.jpg'); /* Placeholder background image */
+            background-image: url('https://lh6.googleusercontent.com/-MdbItJIG9Hg/Vr3jWpDNeZI/AAAAAAAAADw/fynGmEyoX1wF2epMuIKh9x3dGwMaIwsPgCJkC/photo.jpg');
             background-size: cover;
             background-position: center;
-            background-attachment: fixed; /* Makes the background scroll with the content */
+            background-attachment: fixed;
         }
-        /* Specific styles for the product image in the admin list */
         .admin-product-item img {
             width: 80px;
             height: 80px;
             object-fit: cover;
-            border-radius: 0.25rem; /* Small rounded corners */
+            border-radius: 0.25rem;
         }
-        /* Style for buttons */
         button {
             transition: background-color 0.3s ease;
         }
         .bg-blue-500:hover { background-color: #2968c8; }
         .bg-red-500:hover { background-color: #c83434; }
-        .bg-gray-500:hover { background-color: #6b7280; } /* Hover for cancel button */
-        .bg-yellow-500:hover { background-color: #ca8a04; } /* Hover for edit button */
+        .bg-gray-500:hover { background-color: #6b7280; }
+        .bg-yellow-500:hover { background-color: #ca8a04; }
+        .bg-green-500:hover { background-color: #059669; }
     </style>
 </head>
 <body class="min-h-screen flex flex-col">
-    <!-- Header Section -->
     <header class="bg-green-300 p-4 shadow-md rounded-b-lg">
         <div class="container mx-auto flex flex-col md:flex-row justify-between items-center">
             <div class="flex items-center mb-2 md:mb-0">
-                <img src="https://factotal.com/assets/sources/colombia/logo-og.png" alt="Logo de la Tienda" class="h-12 w-12 mr-3 rounded-full"> <!-- Added Logo -->
+                <img src="https://factotal.com/assets/sources/colombia/logo-og.png" alt="Logo de la Tienda" class="h-12 w-12 mr-3 rounded-full">
                 <h1 class="text-3xl font-bold text-gray-800">Administrar Productos</h1>
             </div>
             <nav>
@@ -51,9 +46,8 @@
             </nav>
         </div>
     </header>
-
     <main class="container mx-auto p-4 flex-grow">
-        <!-- Section to add/edit new products -->
+        <!-- Formulario para agregar/editar productos -->
         <section class="bg-white p-6 rounded-lg shadow-md mb-8">
             <h2 class="text-2xl font-semibold mb-4 text-gray-800" id="formTitle">Agregar Nuevo Producto</h2>
             <form id="addProductForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -97,31 +91,22 @@
             </form>
         </section>
 
-        <!-- Section to list and delete products -->
+        <!-- Lista de productos -->
         <section class="bg-white p-6 rounded-lg shadow-md">
             <h2 class="text-2xl font-semibold mb-4 text-gray-800">Productos Existentes</h2>
             <div id="adminProductList" class="space-y-4">
-                <!-- Products will be loaded and managed here by JavaScript -->
                 <p class="text-center text-gray-600" id="noProductsMessage">No hay productos para administrar.</p>
             </div>
         </section>
     </main>
-
-    <!-- Footer Section -->
     <footer class="bg-gray-800 text-white p-6 text-center mt-8 rounded-t-lg">
         <p>&copy; 2025 Mis Productos. Todos los derechos reservados.</p>
     </footer>
-
     <script type="module">
-        // Import Supabase client
         import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
-
-        // --- Configuración de Supabase ---
         const SUPABASE_URL = 'https://rozouuqdkkbcgzuxrung.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJvem91dXFka2tiY2d6dXhydW5nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIxNzgzOTgsImV4cCI6MjA2Nzc1NDM5OH0.ebiSW7hJukWSJZEcnur7beXNB5Rkq9LpcenijS3yOqw';
-
         const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        console.log("Supabase client initialized.");
 
         const addProductForm = document.getElementById('addProductForm');
         const formTitle = document.getElementById('formTitle');
@@ -131,32 +116,24 @@
         const imagePreview = document.getElementById('imagePreview');
         const adminProductList = document.getElementById('adminProductList');
         const noProductsMessage = document.getElementById('noProductsMessage');
+        let currentImageBase64 = '';
+        let editingProductId = null;
 
-        let currentImageBase64 = ''; // To store the Base64 string of the selected image for preview
-        let editingProductId = null; // Stores the Supabase row ID when editing
-
-        // Function to load products from Supabase
         async function loadProducts() {
-            console.log("Loading products from Supabase...");
             try {
                 const { data: products, error } = await supabase
                     .from('products')
                     .select('*')
-                    .order('created_at', { ascending: false }); // Ordena por fecha de creación (más nuevos primero)
-
+                    .order('created_at', { ascending: false });
                 if (error) throw error;
-                
-                console.log("Products loaded successfully:", products);
-                renderAdminProducts(products || []); // Render the products or empty array if null
+                renderAdminProducts(products || []);
             } catch (e) {
-                console.error("Error loading products from Supabase: ", e.message);
                 alert("Error al cargar los productos: " + e.message);
             }
         }
 
-        // Function to render products in the admin list
         function renderAdminProducts(products) {
-            adminProductList.innerHTML = ''; // Clear existing list
+            adminProductList.innerHTML = '';
             if (products.length === 0) {
                 noProductsMessage.style.display = 'block';
             } else {
@@ -172,19 +149,23 @@
                             <img src="${product.image}" alt="${product.name}" class="flex-shrink-0">
                             <div>
                                 <h3 class="text-md font-semibold text-gray-800">${product.name}</h3>
+                                <span class="inline-block px-2 py-1 rounded-full text-xs font-bold ${product.publicado ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'} mb-1">
+                                    ${product.publicado ? 'Publicado' : 'No Publicado'}
+                                </span>
                                 <p class="text-gray-600 text-sm">CLP ${parseFloat(product.price).toFixed(2)}</p>
                                 ${product.sellerName ? `<p class="text-gray-500 text-xs">Vendedor: ${product.sellerName}</p>` : ''}
                                 ${product.sellerEmail ? `<p class="text-gray-500 text-xs">Email: ${product.sellerEmail}</p>` : ''}
                                 ${product.sellerPhone ? `<p class="text-gray-500 text-xs">Teléfono: ${product.sellerPhone}</p>` : ''}
                             </div>
                         </div>
-                        <div class="flex space-x-2">
-                            <button data-id="${product.id}" class="edit-product-btn bg-yellow-500 text-white py-1 px-3 rounded-md text-sm focus:outline-none focus:shadow-outline">
-                                Editar
+                        <div class="flex flex-col space-y-2">
+                            <button data-id="${product.id}" class="toggle-publish-btn ${product.publicado ? 'bg-yellow-500' : 'bg-green-500'} text-white py-1 px-3 rounded-md text-sm focus:outline-none focus:shadow-outline">
+                                ${product.publicado ? 'Despublicar' : 'Publicar'}
                             </button>
-                            <button data-id="${product.id}" class="delete-product-btn bg-red-500 text-white py-1 px-3 rounded-md text-sm focus:outline-none focus:shadow-outline">
-                                Eliminar
-                            </button>
+                            <div class="flex space-x-2">
+                                <button data-id="${product.id}" class="edit-product-btn bg-yellow-500 text-white py-1 px-3 rounded-md text-sm focus:outline-none focus:shadow-outline">Editar</button>
+                                <button data-id="${product.id}" class="delete-product-btn bg-red-500 text-white py-1 px-3 rounded-md text-sm focus:outline-none focus:shadow-outline">Eliminar</button>
+                            </div>
                         </div>
                     `;
                     adminProductList.appendChild(productItem);
@@ -192,239 +173,21 @@
             }
         }
 
-        // Function to clear the form and reset to "Add Product" mode
         function resetForm() {
             addProductForm.reset();
             imagePreview.src = 'https://placehold.co/100x100/cccccc/333333?text=Preview';
             imagePreview.style.display = 'none';
-            currentImageBase64 = ''; // Clear Base64 for new product
+            currentImageBase64 = '';
             editingProductId = null;
             formTitle.textContent = 'Agregar Nuevo Producto';
             submitBtn.textContent = 'Agregar Producto';
             cancelEditBtn.style.display = 'none';
-            loadProducts(); // Refresh the product list after reset
+            loadProducts();
         }
 
-        // Event listener for file input change
         productImageFile.addEventListener('change', function(event) {
             const file = event.target.files[0];
             if (file) {
                 const reader = new FileReader();
                 reader.onload = function(e) {
-                    imagePreview.src = e.target.result;
-                    imagePreview.style.display = 'block'; // Show the preview image
-                    currentImageBase64 = e.target.result; // Store Base64 string for potential upload
-                };
-                reader.readAsDataURL(file); // Read file as Base64 URL for preview
-            } else {
-                imagePreview.src = 'https://placehold.co/100x100/cccccc/333333?text=Preview';
-                imagePreview.style.display = 'none'; // Hide if no file selected
-                currentImageBase64 = '';
-            }
-        });
-
-        // Add event listener for form submission (add/edit product)
-        addProductForm.addEventListener('submit', async function(event) {
-            event.preventDefault();
-            console.log("Form submitted. Attempting to save product to Supabase...");
-
-            const productName = document.getElementById('productName').value;
-            const productDescription = document.getElementById('productDescription').value;
-            const productPrice = parseFloat(document.getElementById('productPrice').value);
-            const sellerName = document.getElementById('sellerName').value;
-            const sellerEmail = document.getElementById('sellerEmail').value;
-            const sellerPhone = document.getElementById('sellerPhone').value;
-            const imageFile = productImageFile.files[0]; // Get the actual file object
-
-            let imageUrl = ''; // This will store the URL from Supabase Storage or a placeholder
-
-            if (imageFile) {
-                // Upload image to Supabase Storage
-                const filePath = `product_images/${Date.now()}_${imageFile.name}`; // Unique file path
-                const { data: uploadData, error: uploadError } = await supabase.storage
-                    .from('product-images') // Reemplaza 'product-images' con el nombre de tu bucket
-                    .upload(filePath, imageFile, {
-                        cacheControl: '3600',
-                        upsert: false // Set to true if you want to overwrite existing files with the same path
-                    });
-
-                if (uploadError) {
-                    console.error("Error uploading image to Supabase Storage:", uploadError.message);
-                    alert("Error al subir la imagen: " + uploadError.message);
-                    return; // Stop execution if upload fails
-                }
-
-                // Get public URL of the uploaded image
-                const { data: publicUrlData } = supabase.storage
-                    .from('product-images') // Reemplaza 'product-images' con el nombre de tu bucket
-                    .getPublicUrl(filePath);
-                
-                imageUrl = publicUrlData.publicUrl;
-                console.log("Image uploaded to:", imageUrl);
-
-            } else if (editingProductId && currentImageBase64 && !currentImageBase64.startsWith('https://placehold.co')) {
-                // If editing and no new file selected, but there was an existing image URL, keep it
-                imageUrl = currentImageBase64; 
-            } else {
-                imageUrl = 'https://placehold.co/200x200/cccccc/333333?text=No+Image'; // Fallback if no image selected
-            }
-
-            const productData = {
-                name: productName,
-                description: productDescription,
-                price: productPrice,
-                image: imageUrl, // Store the URL, not Base64
-                sellerName: sellerName,
-                sellerEmail: sellerEmail,
-                sellerPhone: sellerPhone
-            };
-
-            try {
-                if (editingProductId) {
-                    // Update existing product
-                    console.log("Updating product with ID:", editingProductId, "with data:", productData);
-                    const { data, error } = await supabase
-                        .from('products')
-                        .update(productData)
-                        .eq('id', editingProductId); // 'id' es la clave primaria en Supabase
-
-                    if (error) throw error;
-                    console.log("Product successfully updated:", data);
-                } else {
-                    // Add new product
-                    console.log("Adding new product with data:", productData);
-                    const { data, error } = await supabase
-                        .from('products')
-                        .insert([productData]); // insert espera un array de objetos
-
-                    if (error) throw error;
-                    console.log("Product successfully added:", data);
-                }
-                resetForm(); // Clear form and reset to add mode
-            } catch (e) {
-                console.error("Error adding/updating document to Supabase: ", e.message);
-                alert("Error al guardar el producto: " + e.message);
-            }
-        });
-
-        // Add event listener for delete and edit buttons (event delegation)
-        adminProductList.addEventListener('click', async function(event) {
-            if (event.target.classList.contains('delete-product-btn')) {
-                const idToDelete = event.target.dataset.id;
-                console.log("Delete button clicked for product ID:", idToDelete);
-                try {
-                    // Optional: Get product to delete image from storage
-                    const { data: productToDelete, error: fetchError } = await supabase
-                        .from('products')
-                        .select('image')
-                        .eq('id', idToDelete)
-                        .single();
-
-                    if (fetchError) {
-                        console.error("Error fetching product for image deletion:", fetchError.message);
-                        // Continue with product deletion even if image fetch fails
-                    } else if (productToDelete && productToDelete.image && !productToDelete.image.startsWith('https://placehold.co')) {
-                        // Attempt to delete image from storage if it's not a placeholder
-                        const imageUrlParts = productToDelete.image.split('/');
-                        const imagePath = imageUrlParts.slice(imageUrlParts.indexOf('product_images')).join('/'); // Adjust based on your bucket structure
-                        
-                        console.log("Attempting to delete image from storage:", imagePath);
-                        const { error: deleteImageError } = await supabase.storage
-                            .from('product-images') // Reemplaza con el nombre de tu bucket
-                            .remove([imagePath]);
-
-                        if (deleteImageError) {
-                            console.error("Error deleting image from Supabase Storage:", deleteImageError.message);
-                            // Continue with product deletion even if image deletion fails
-                        } else {
-                            console.log("Image successfully deleted from storage.");
-                        }
-                    }
-
-                    // Delete product from database
-                    const { error } = await supabase
-                        .from('products')
-                        .delete()
-                        .eq('id', idToDelete); // Elimina la fila con el ID correspondiente
-
-                    if (error) throw error;
-                    console.log("Product successfully deleted with ID: ", idToDelete);
-                    resetForm(); // Clear form if the edited item was deleted
-                } catch (e) {
-                    console.error("Error deleting document from Supabase: ", e.message);
-                    alert("Error al eliminar el producto: " + e.message);
-                }
-            } else if (event.target.classList.contains('edit-product-btn')) {
-                editingProductId = event.target.dataset.id;
-                console.log("Edit button clicked for product ID:", editingProductId);
-                try {
-                    // Obtener el producto específico para editar
-                    const { data: productToEdit, error } = await supabase
-                        .from('products')
-                        .select('*')
-                        .eq('id', editingProductId)
-                        .single(); // .single() espera un solo resultado
-
-                    if (error) throw error;
-
-                    if (productToEdit) {
-                        console.log("Found product to edit:", productToEdit);
-                        // Populate the form with the product data
-                        document.getElementById('productName').value = productToEdit.name;
-                        document.getElementById('productDescription').value = productToEdit.description;
-                        document.getElementById('productPrice').value = productToEdit.price;
-                        document.getElementById('sellerName').value = productToEdit.sellerName || '';
-                        document.getElementById('sellerEmail').value = productToEdit.sellerEmail || '';
-                        document.getElementById('sellerPhone').value = productToEdit.sellerPhone || '';
-
-                        // Set image preview
-                        if (productToEdit.image) {
-                            imagePreview.src = productToEdit.image;
-                            imagePreview.style.display = 'block';
-                            currentImageBase64 = productToEdit.image; // Store the URL for existing image
-                        } else {
-                            imagePreview.src = 'https://placehold.co/100x100/cccccc/333333?text=Preview';
-                            imagePreview.style.display = 'none';
-                            currentImageBase64 = '';
-                        }
-
-                        // Change form title and button text
-                        formTitle.textContent = 'Editar Producto Existente';
-                        submitBtn.textContent = 'Guardar Cambios';
-                        cancelEditBtn.style.display = 'inline-block'; // Show cancel button
-                    } else {
-                        console.error("Product with ID", editingProductId, "not found for editing.");
-                    }
-                } catch (e) {
-                    console.error("Error fetching product for edit from Supabase: ", e.message);
-                    alert("Error al cargar el producto para editar: " + e.message);
-                }
-            }
-        });
-
-        // Event listener for cancel edit button
-        cancelEditBtn.addEventListener('click', resetForm);
-
-        // Listen for real-time updates from Supabase
-        function listenForProductChanges() {
-            console.log("Attempting to listen for real-time product changes from Supabase...");
-            supabase
-                .from('products')
-                .on('*', payload => { // '*' escucha todos los eventos (INSERT, UPDATE, DELETE)
-                    console.log('Realtime change received from Supabase:', payload);
-                    loadProducts(); // Recarga todos los productos para mantener la UI sincronizada
-                })
-                .subscribe();
-            
-            // Carga inicial de productos al iniciar la escucha
-            loadProducts(); 
-        }
-
-        // Iniciar la escucha de cambios de productos cuando la página carga
-        document.addEventListener('DOMContentLoaded', () => {
-    loadProducts(); // Carga inmediata de productos al cargar la página
-    listenForProductChanges();
-});
-    </script>
-</body>
-</html>
+                    imagePreview
